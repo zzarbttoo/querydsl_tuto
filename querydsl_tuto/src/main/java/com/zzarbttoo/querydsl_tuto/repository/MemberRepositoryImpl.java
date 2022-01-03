@@ -2,6 +2,7 @@ package com.zzarbttoo.querydsl_tuto.repository;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.zzarbttoo.querydsl_tuto.dto.MemberSearchCondition;
@@ -11,6 +12,7 @@ import com.zzarbttoo.querydsl_tuto.entity.Member;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.support.QuerydslRepositorySupport;
 import org.springframework.data.support.PageableExecutionUtils;
 
 import javax.persistence.EntityManager;
@@ -20,32 +22,38 @@ import static com.zzarbttoo.querydsl_tuto.entity.QMember.member;
 import static com.zzarbttoo.querydsl_tuto.entity.QTeam.team;
 import static org.springframework.util.StringUtils.hasText;
 
-public class MemberRepositoryImpl implements MemberRepositoryCustom{
+public class MemberRepositoryImpl extends QuerydslRepositorySupport implements MemberRepositoryCustom{
 
-    private final JPAQueryFactory queryFactory;
-
-    public MemberRepositoryImpl(EntityManager em){
-        this.queryFactory = new JPAQueryFactory(em);
+    //QuerydslRepositorySupport가 추상클래스이기 때문에 제공해줌
+    //public MemberRepositoryImpl(Class<?> domainClass){
+    public MemberRepositoryImpl(){
+        //super(domainClass.class);
+        super(Member.class);
     }
+
+    //private final JPAQueryFactory queryFactory;
+    //public MemberRepositoryImpl(EntityManager em){
+        //this.queryFactory = new JPAQueryFactory(em);
+    //}
+
 
     @Override
     public List<MemberTeamDTO> search(MemberSearchCondition condition){
 
-        return queryFactory.select(new QMemberTeamDTO(
-                member.id.as("memberId"),
-                member.username,
-                member.age,
-                team.id.as("teamId"),
-                team.name.as("teamName")
-        ))
-                .from(member)
-                .leftJoin(member.team, team)
+        //from을 제공해줘서 from부터 하면 된다(querydsl 3버전에서는 from부터 시작
+        return from(member).leftJoin(member.team, team)
                 .where(usernameEq(condition.getUsername()),
                         teamNameEq(condition.getTeamName()),
                         ageGoe(condition.getAgeGoe()),
                         ageLoe(condition.getAgeLoe())
-                )
+                ).select(new QMemberTeamDTO(
+                member.id.as("memberId"),
+                member.username,
+                member.age,
+                team.id.as("teamId"),
+                team.name.as("teamName")))
                 .fetch();
+
     }
 
     //Predicate 대신 BooleanExpression을 이용하면 조합해서 이용이 가능해서 좋다
@@ -92,6 +100,35 @@ public class MemberRepositoryImpl implements MemberRepositoryCustom{
 
         return new PageImpl<>(content, pageable, total);
 
+    }
+
+    @Override
+    public Page<MemberTeamDTO> searchPageSimple2(MemberSearchCondition condition, Pageable pageable) {
+
+
+        JPQLQuery<MemberTeamDTO> jpaQuery = from(member)
+                .leftJoin(member.team, team)
+                .where(usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamName()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe())
+                )
+                .select(new QMemberTeamDTO(
+                        member.id.as("memberId"),
+                        member.username,
+                        member.age,
+                        team.id.as("teamId"),
+                        team.name.as("teamName")
+                ));
+
+        //offset, limit는 줄일 수 있지만 method chain이 끊겨서 지져분..
+        JPQLQuery<MemberTeamDTO> query = getQuerydsl().applyPagination(pageable, jpaQuery);
+        List<MemberTeamDTO> fetch = query.fetch();
+
+        //sort가 적용이 안된다
+        //지저분하다..
+
+        return null;
     }
 
     //데이터 내용과 count를 별도로 구현하는 쿼리

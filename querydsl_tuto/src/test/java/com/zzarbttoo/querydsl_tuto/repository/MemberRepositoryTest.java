@@ -3,6 +3,7 @@ package com.zzarbttoo.querydsl_tuto.repository;
 import com.zzarbttoo.querydsl_tuto.dto.MemberSearchCondition;
 import com.zzarbttoo.querydsl_tuto.dto.MemberTeamDTO;
 import com.zzarbttoo.querydsl_tuto.entity.Member;
+import com.zzarbttoo.querydsl_tuto.entity.QMember;
 import com.zzarbttoo.querydsl_tuto.entity.Team;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -106,6 +107,24 @@ class MemberRepositoryTest {
 
 
     }
+
+    @Test
+    public void querydslPredicateExecutoerTest(){
+        QMember member = QMember.member;
+        Iterable<Member> result = memberRepository.findAll(member.age.between(10, 40).and(member.username.eq("member1")));
+        for (Member findMember : result) {
+            System.out.println("member:::" + findMember);
+        }
+
+        //근데 left join을 못한다
+        //클라이언트가 querydsl에 의존해야한다(querydsl 객체를 service에서 넘겨야 한다)
+        //테이블 하나에서 쓰는거면 모르지만 실무에서는 사용 X
+
+
+    }
+
+    //QuerydslWeb은 사용하지 않는 편이 좋다(복잡, join 안됨, 아키텍쳐 지져분)
+
 
 
 }
